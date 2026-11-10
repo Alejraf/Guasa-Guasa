@@ -212,40 +212,6 @@
             justify-content: space-between;
         }
 
-        .player-controls {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .play-btn {
-            background-color: var(--accent);
-            color: white;
-            border: none;
-            width: 38px;
-            height: 38px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 4px;
-            background-color: var(--bg-card);
-            border-radius: 2px;
-            overflow: hidden;
-            cursor: pointer;
-        }
-
-        .progress-fill {
-            height: 100%;
-            width: 0%;
-            background-color: var(--accent);
-        }
-
         .ad-banner-zone {
             position: fixed;
             bottom: 0;
@@ -300,14 +266,14 @@
 
         <div class="search-container">
             <i data-lucide="search"></i>
-            <input type="text" id="search-input" placeholder="Buscar canciones o artistas..." onkeyup="ejecutarBusqueda(event)">
+            <input type="text" id="search-input" placeholder="Buscar canciones o artistas..." oninput="ejecutarBusqueda(this.value)">
         </div>
 
         <h3 id="lbl-recommended" style="margin-bottom: 12px; font-size: 15px; color: var(--text-muted);">Recomendados en Streaming</h3>
         <div class="track-list" id="results-container"></div>
     </main>
 
-    <!-- Reproductor de audio nativo HTML5 integrado con controles -->
+    <!-- Reproductor nativo con controles -->
     <div class="player-bar">
         <audio id="audio-element" controls style="width: 100%; height: 35px; background: transparent;" src=""></audio>
         <div class="player-main">
@@ -352,15 +318,17 @@
         let currentLang = localStorage.getItem('guasa_lang') || 'es';
         lucide.createIcons();
 
-        const defaultTracks = [
-            { name: "Guasa Guasa Electronic Club", artist_name: "Guasa Sound", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", image: "logo.png" },
+        // Biblioteca ampliada con múltiples pistas de streaming directo
+        const masterTracks = [
+            { name: "Guasa Guasa Club Mix", artist_name: "Guasa Sound", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", image: "logo.png" },
             { name: "Latin Chill Session", artist_name: "Studio Beats", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3", image: "logo.png" },
-            { name: "Urban Rhythm Mix", artist_name: "Guasa Producer", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3", image: "logo.png" },
-            { name: "Deep Bassline Guasa", artist_name: "Sound Master", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3", image: "logo.png" }
+            { name: "Urban Rhythm & Bass", artist_name: "Guasa Producer", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3", image: "logo.png" },
+            { name: "Deep Electronic Guasa", artist_name: "Sound Master", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3", image: "logo.png" },
+            { name: "Smooth Summer Grooves", artist_name: "Global Beats", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", image: "logo.png" },
+            { name: "Night Drive Synthwave", artist_name: "Retro Sound", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-15.mp3", image: "logo.png" }
         ];
 
         const audioPlayer = document.getElementById('audio-element');
-        let isPlaying = false;
         let isPremium = localStorage.getItem('app_premium') === 'true';
         let totalTracksCount = parseInt(localStorage.getItem('app_tracks_count') || '0');
         let totalSecondsListened = parseInt(localStorage.getItem('app_seconds_listened') || '0');
@@ -371,10 +339,7 @@
         document.getElementById('count-tracks').innerText = totalTracksCount;
         actualizarTiempoInterfaz();
         aplicarEstadoPremium();
-        renderizarCanciones(defaultTracks);
-
-        audioPlayer.onplay = () => { isPlaying = true; };
-        audioPlayer.onpause = () => { isPlaying = false; };
+        renderizarCanciones(masterTracks);
 
         setInterval(() => {
             if (!audioPlayer.paused && !audioPlayer.ended) {
@@ -410,19 +375,27 @@
             aplicarEstadoPremium();
         }
 
-        function ejecutarBusqueda(event) {
-            const query = document.getElementById('search-input').value.trim().toLowerCase();
-            if (query.length === 0) {
-                renderizarCanciones(defaultTracks);
+        function ejecutarBusqueda(query) {
+            const texto = query.trim().toLowerCase();
+            if (texto === "") {
+                renderizarCanciones(masterTracks);
                 return;
             }
-            const filtradas = defaultTracks.filter(t => t.name.toLowerCase().includes(query) || t.artist_name.toLowerCase().includes(query));
-            renderizarCanciones(filtradas.length > 0 ? filtradas : defaultTracks);
+            const filtradas = masterTracks.filter(t => 
+                t.name.toLowerCase().includes(texto) || 
+                t.artist_name.toLowerCase().includes(texto)
+            );
+            renderizarCanciones(filtradas);
         }
 
         function renderizarCanciones(tracks) {
             const container = document.getElementById('results-container');
             container.innerHTML = '';
+
+            if(tracks.length === 0) {
+                container.innerHTML = `<p style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">No se encontraron resultados</p>`;
+                return;
+            }
 
             tracks.forEach(track => {
                 const item = document.createElement('div');
@@ -431,7 +404,7 @@
 
                 item.innerHTML = `
                     <div class="track-info-group">
-                        <img class="track-cover" src="${track.image || 'logo.png'}" alt="cover">
+                        <img class="track-cover" src="${track.image}" alt="cover">
                         <div class="track-details">
                             <span class="track-title">${track.name}</span>
                             <span class="track-artist">${track.artist_name}</span>
@@ -451,12 +424,12 @@
                 localStorage.setItem('app_tracks_count', totalTracksCount);
                 document.getElementById('count-tracks').innerText = totalTracksCount;
             }).catch(e => {
-                console.error("Reproducción bloqueada o error:", e);
+                console.error("Reproducción pausada:", e);
             });
 
             document.getElementById('player-title').innerText = track.name;
             document.getElementById('player-artist').innerText = track.artist_name;
-            document.getElementById('player-cover').src = track.image || 'logo.png';
+            document.getElementById('player-cover').src = track.image;
         }
 
         function togglePremium() {
