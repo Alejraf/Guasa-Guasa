@@ -266,7 +266,7 @@
 
         <div class="search-container">
             <i data-lucide="search"></i>
-            <input type="text" id="search-input" placeholder="Buscar canciones o artistas..." oninput="filtrarOMarcar(this.value)" onkeydown="manejarEnter(event)">
+            <input type="text" id="search-input" placeholder="Buscar canciones o artistas (Presiona Enter)..." onkeydown="manejarBusqueda(event)">
         </div>
 
         <h3 id="lbl-recommended" style="margin-bottom: 12px; font-size: 15px; color: var(--text-muted);">Recomendados en Streaming</h3>
@@ -294,7 +294,7 @@
     <script>
         const i18n = {
             es: {
-                searchPlaceholder: "Buscar canciones o artistas...",
+                searchPlaceholder: "Buscar canciones o artistas (Presiona Enter)...",
                 recommended: "Recomendados en Streaming",
                 played: "Reproducidas",
                 activeTime: "Tiempo Activo",
@@ -302,10 +302,11 @@
                 btnPremiumFree: "💎 Ir Premium",
                 btnPremiumMember: "✨ Miembro Premium",
                 adText: "📢 Espacio de Publicidad Activa (Monetag)",
-                noResults: "No se encontraron coincidencias"
+                noResults: "No se encontraron resultados",
+                searching: "Buscando artista..."
             },
             pt: {
-                searchPlaceholder: "Buscar músicas ou artistas...",
+                searchPlaceholder: "Buscar músicas ou artistas (Pressione Enter)...",
                 recommended: "Recomendados em Streaming",
                 played: "Reproduzidas",
                 activeTime: "Tempo Ativo",
@@ -313,21 +314,19 @@
                 btnPremiumFree: "💎 Virar Premium",
                 btnPremiumMember: "✨ Membro Premium",
                 adText: "📢 Espaço de Publicidade Ativa (Monetag)",
-                noResults: "Nenhum resultado encontrado"
+                noResults: "Nenhum resultado encontrado",
+                searching: "Buscando artista..."
             }
         };
 
         let currentLang = localStorage.getItem('guasa_lang') || 'es';
         lucide.createIcons();
 
-        // Biblioteca principal enriquecida con sugeridos y artistas internacionales de prueba
-        const masterTracks = [
+        // Canciones sugeridas locales de alta estabilidad
+        const defaultTracks = [
             { name: "Guasa Guasa Vibes", artist_name: "Guasa Sound", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", image: "logo.png" },
             { name: "Electronic Chill Session", artist_name: "Jamendo Creator", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3", image: "logo.png" },
-            { name: "Latin Rhythm Live", artist_name: "Studio Beats", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3", image: "logo.png" },
-            { name: "Billie Jean (Tributo Club)", artist_name: "Michael Jackson Style", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3", image: "logo.png" },
-            { name: "Smooth Criminal Remix", artist_name: "Michael Jackson Tribute", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3", image: "logo.png" },
-            { name: "Rock Global Anthems", artist_name: "Classic Rock Band", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", image: "logo.png" }
+            { name: "Latin Rhythm Live", artist_name: "Studio Beats", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3", image: "logo.png" }
         ];
 
         const audioPlayer = document.getElementById('audio-element');
@@ -341,10 +340,11 @@
         document.getElementById('count-tracks').innerText = totalTracksCount;
         actualizarTiempoInterfaz();
         aplicarEstadoPremium();
-        renderizarCanciones(masterTracks);
+        renderizarCanciones(defaultTracks);
 
+        // Control estricto de tiempo activo solo cuando la música suena de verdad
         setInterval(() => {
-            if (!audioPlayer.paused && !audioPlayer.ended) {
+            if (!audioPlayer.paused && !audioPlayer.ended && audioPlayer.src) {
                 totalSecondsListened++;
                 localStorage.setItem('app_seconds_listened', totalSecondsListened);
                 actualizarTiempoInterfaz();
@@ -377,37 +377,50 @@
             aplicarEstadoPremium();
         }
 
-        // Búsqueda inteligente en vivo que incluye sugeridos y artistas internacionales
-        function filtrarOMarcar(query) {
-            const texto = query.trim().toLowerCase();
-            const texts = i18n[currentLang];
-
-            if (texto === "") {
-                renderizarCanciones(masterTracks);
+        // Búsqueda inteligente: si borras el texto muestra sugeridas; si escribes y das Enter busca globalmente o filtra local
+        async function manejarBusqueda(event) {
+            const query = document.getElementById('search-input').value.trim();
+            
+            if (query === "") {
+                renderizarCanciones(defaultTracks);
                 return;
             }
 
-            const filtradas = masterTracks.filter(t => 
-                t.name.toLowerCase().includes(texto) || 
-                t.artist_name.toLowerCase().includes(texto)
-            );
-
-            const container = document.getElementById('results-container');
-            container.innerHTML = '';
-
-            if (filtradas.length === 0) {
-                container.innerHTML = `<p style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">${texts.noResults}</p>`;
-                return;
-            }
-
-            renderizarCanciones(filtradas);
-        }
-
-        function manejarEnter(event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
-                const query = document.getElementById('search-input').value.trim();
-                filtrarOMarcar(query);
+                const container = document.getElementById('results-container');
+                const texts = i18n[currentLang];
+                container.innerHTML = `<p style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">${texts.searching}</p>`;
+
+                try {
+                    const response = await fetch(`https://api.jamendo.com/v3.0/tracks/?client_id=b6747d04&format=json&limit=15&search=${encodeURIComponent(query)}`);
+                    const data = await response.json();
+                    
+                    if (data && data.results && data.results.length > 0) {
+                        const formatted = data.results.map(t => ({
+                            name: t.name,
+                            artist_name: t.artist_name,
+                            audio: t.audio,
+                            image: t.image || 'logo.png'
+                        }));
+                        renderizarCanciones(formatted);
+                    } else {
+                        // Respaldo de búsqueda local si la API externa no arroja resultados
+                        const filtradas = defaultTracks.filter(t => t.name.toLowerCase().includes(query.toLowerCase()) || t.artist_name.toLowerCase().includes(query.toLowerCase()));
+                        if (filtradas.length > 0) {
+                            renderizarCanciones(filtradas);
+                        } else {
+                            container.innerHTML = `<p style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">${texts.noResults}</p>`;
+                        }
+                    }
+                } catch (err) {
+                    const filtradas = defaultTracks.filter(t => t.name.toLowerCase().includes(query.toLowerCase()) || t.artist_name.toLowerCase().includes(query.toLowerCase()));
+                    if (filtradas.length > 0) {
+                        renderizarCanciones(filtradas);
+                    } else {
+                        container.innerHTML = `<p style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">${texts.noResults}</p>`;
+                    }
+                }
             }
         }
 
@@ -438,6 +451,7 @@
         function reproducirTrack(track) {
             audioPlayer.src = track.audio;
             audioPlayer.play().then(() => {
+                // Incrementa contador SOLO cuando el usuario hace clic y la música arranca con éxito
                 totalTracksCount++;
                 localStorage.setItem('app_tracks_count', totalTracksCount);
                 document.getElementById('count-tracks').innerText = totalTracksCount;
