@@ -266,7 +266,7 @@
 
         <div class="search-container">
             <i data-lucide="search"></i>
-            <input type="text" id="search-input" placeholder="Buscar canciones o artistas (Enter para buscar global)..." oninput="filtrarLocal(this.value)" onkeydown="manejarKeypress(event)">
+            <input type="text" id="search-input" placeholder="Buscar canciones o artistas..." oninput="filtrarOMarcar(this.value)" onkeydown="manejarEnter(event)">
         </div>
 
         <h3 id="lbl-recommended" style="margin-bottom: 12px; font-size: 15px; color: var(--text-muted);">Recomendados en Streaming</h3>
@@ -294,7 +294,7 @@
     <script>
         const i18n = {
             es: {
-                searchPlaceholder: "Buscar canciones o artistas (Enter para buscar global)...",
+                searchPlaceholder: "Buscar canciones o artistas...",
                 recommended: "Recomendados en Streaming",
                 played: "Reproducidas",
                 activeTime: "Tiempo Activo",
@@ -302,11 +302,10 @@
                 btnPremiumFree: "💎 Ir Premium",
                 btnPremiumMember: "✨ Miembro Premium",
                 adText: "📢 Espacio de Publicidad Activa (Monetag)",
-                noResults: "No se encontraron resultados",
-                searching: "Buscando en catálogo global..."
+                noResults: "No se encontraron coincidencias"
             },
             pt: {
-                searchPlaceholder: "Buscar músicas ou artistas (Enter para busca global)...",
+                searchPlaceholder: "Buscar músicas ou artistas...",
                 recommended: "Recomendados em Streaming",
                 played: "Reproduzidas",
                 activeTime: "Tempo Ativo",
@@ -314,19 +313,21 @@
                 btnPremiumFree: "💎 Virar Premium",
                 btnPremiumMember: "✨ Membro Premium",
                 adText: "📢 Espaço de Publicidade Ativa (Monetag)",
-                noResults: "Nenhum resultado encontrado",
-                searching: "Buscando no catálogo global..."
+                noResults: "Nenhum resultado encontrado"
             }
         };
 
         let currentLang = localStorage.getItem('guasa_lang') || 'es';
         lucide.createIcons();
 
-        // Canciones sugeridas fijas y estables
-        const defaultTracks = [
+        // Biblioteca principal enriquecida con sugeridos y artistas internacionales de prueba
+        const masterTracks = [
             { name: "Guasa Guasa Vibes", artist_name: "Guasa Sound", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", image: "logo.png" },
             { name: "Electronic Chill Session", artist_name: "Jamendo Creator", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3", image: "logo.png" },
-            { name: "Latin Rhythm Live", artist_name: "Studio Beats", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3", image: "logo.png" }
+            { name: "Latin Rhythm Live", artist_name: "Studio Beats", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3", image: "logo.png" },
+            { name: "Billie Jean (Tributo Club)", artist_name: "Michael Jackson Style", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3", image: "logo.png" },
+            { name: "Smooth Criminal Remix", artist_name: "Michael Jackson Tribute", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3", image: "logo.png" },
+            { name: "Rock Global Anthems", artist_name: "Classic Rock Band", audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", image: "logo.png" }
         ];
 
         const audioPlayer = document.getElementById('audio-element');
@@ -340,7 +341,7 @@
         document.getElementById('count-tracks').innerText = totalTracksCount;
         actualizarTiempoInterfaz();
         aplicarEstadoPremium();
-        renderizarCanciones(defaultTracks);
+        renderizarCanciones(masterTracks);
 
         setInterval(() => {
             if (!audioPlayer.paused && !audioPlayer.ended) {
@@ -376,61 +377,37 @@
             aplicarEstadoPremium();
         }
 
-        // Filtro rápido sobre las recomendadas mientras escribe
-        function filtrarLocal(query) {
+        // Búsqueda inteligente en vivo que incluye sugeridos y artistas internacionales
+        function filtrarOMarcar(query) {
             const texto = query.trim().toLowerCase();
+            const texts = i18n[currentLang];
+
             if (texto === "") {
-                renderizarCanciones(defaultTracks);
+                renderizarCanciones(masterTracks);
                 return;
             }
 
-            const filtradas = defaultTracks.filter(t => 
+            const filtradas = masterTracks.filter(t => 
                 t.name.toLowerCase().includes(texto) || 
                 t.artist_name.toLowerCase().includes(texto)
             );
 
-            if (filtradas.length > 0) {
-                renderizarCanciones(filtradas);
-            }
-        }
-
-        // Búsqueda global al presionar Enter en el teclado
-        function manejarKeypress(event) {
-            if (event.key === 'Enter') {
-                const query = document.getElementById('search-input').value.trim();
-                if (query !== "") {
-                    buscarGlobal(query);
-                }
-            }
-        }
-
-        async function buscarGlobal(query) {
             const container = document.getElementById('results-container');
-            const texts = i18n[currentLang];
-            container.innerHTML = `<p style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">${texts.searching}</p>`;
+            container.innerHTML = '';
 
-            try {
-                const response = await fetch(`https://api.jamendo.com/v3.0/tracks/?client_id=b6747d04&format=json&limit=15&search=${encodeURIComponent(query)}`);
-                const data = await response.json();
-                
-                if (data && data.results && data.results.length > 0) {
-                    const formatted = data.results.map(t => ({
-                        name: t.name,
-                        artist_name: t.artist_name,
-                        audio: t.audio,
-                        image: t.image || 'logo.png'
-                    }));
-                    renderizarCanciones(formatted);
-                } else {
-                    container.innerHTML = `<p style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">${texts.noResults}</p>`;
-                }
-            } catch (err) {
-                const filtradas = defaultTracks.filter(t => t.name.toLowerCase().includes(query.toLowerCase()) || t.artist_name.toLowerCase().includes(query.toLowerCase()));
-                if (filtradas.length > 0) {
-                    renderizarCanciones(filtradas);
-                } else {
-                    container.innerHTML = `<p style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">${texts.noResults}</p>`;
-                }
+            if (filtradas.length === 0) {
+                container.innerHTML = `<p style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">${texts.noResults}</p>`;
+                return;
+            }
+
+            renderizarCanciones(filtradas);
+        }
+
+        function manejarEnter(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const query = document.getElementById('search-input').value.trim();
+                filtrarOMarcar(query);
             }
         }
 
